@@ -12,7 +12,7 @@ import {Context} from './context.js';
 export const STARTUP_FILE_KEY = "_startup_file_1";
 
 export const Properties = {
-  steps  : {type: "int", value: 1, min: 0, max: 10, slideSpeed : 5},
+  steps  : {type: "int", value: 1, min: 0, max: 10, slideSpeed: 5},
   boolVal: {type: "bool", value: true},
 };
 
@@ -81,6 +81,7 @@ export class App extends simple.AppState {
     } catch (error) {
       util.print_stack(error);
       console.warn("Failed to load startup file");
+      this.createNewFile();
     }
   }
 
@@ -154,11 +155,20 @@ export function start() {
     _appstate.draw();
   }
 
+  let ignore_lvl = 0;
+  window.draw_ignore_push = function () {
+    ignore_lvl++;
+  }
+  window.draw_ignore_pop = function () {
+    ignore_lvl = Math.max(ignore_lvl - 1, 0);
+  }
+
   window.redraw_all = function () {
-    if (animreq) {
+    if (animreq || ignore_lvl) {
       return;
     }
 
+    console.warn("redraw_all");
     animreq = requestAnimationFrame(f);
   }
 
