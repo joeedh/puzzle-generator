@@ -4,6 +4,7 @@ import {
 } from '../path.ux/pathux.js';
 import {getElemColor} from './mesh.js';
 import {MeshEditor} from './mesh_editor.js';
+import config from '../config/config.js';
 
 export class LoadDefaultsOp extends ToolOp {
   static tooldef() {
@@ -149,6 +150,10 @@ export class Workspace extends simple.Editor {
 
     let sidebar = this.makeSideBar();
 
+    if (config.DRAW_TEST_IMAGES) {
+      this.ctx.state.testImages.makeUI(sidebar, "testImages");
+    }
+
     let header = this.header;
     let row;
 
@@ -194,8 +199,12 @@ export class Workspace extends simple.Editor {
       canvas.style["height"] = "" + (h/dpi) + "px";
     }
 
-    this.g.clearRect(0, 0, canvas.width, canvas.height);
     console.log("draw!");
+    this.g.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (config.DRAW_TEST_IMAGES) {
+      this.ctx.state.testImages.draw(canvas, this.g);
+    }
 
     this.toolmode.draw(this.ctx, this.canvas, this.g);
   }

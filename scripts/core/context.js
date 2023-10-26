@@ -6,6 +6,7 @@ import config from '../config/config.js';
 import {simple, ToolOp} from '../path.ux/scripts/pathux.js';
 import {Workspace} from './editor.js';
 import {MeshTypes} from './mesh.js';
+import {ImageWrangler} from './image_wrangler.js';
 
 ToolOp.prototype.undoPre = function (ctx) {
   this._undo = ctx.state.saveFileSync({
@@ -43,7 +44,12 @@ export class Context {
     return this.state.properties;
   }
 
+  get testImages() {
+    return this.state.testImages;
+  }
+
   static defineAPI(api, st) {
+    st.struct("testImages", "testImages", "Test Images", api.mapStruct(ImageWrangler));
     st.dynamicStruct("properties", "properties", "Properties");
   }
 }

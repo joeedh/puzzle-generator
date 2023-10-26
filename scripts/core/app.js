@@ -1,5 +1,6 @@
 import {
-  simple, util, Vector2, Vector3, Matrix4, math, ToolOp, PropTypes, NumberConstraints, TextBoxBase
+  simple, util, Vector2, Vector3, Matrix4, math, ToolOp, PropTypes,
+  NumberConstraints, TextBoxBase, nstructjs
 } from '../path.ux/pathux.js';
 
 import './editor.js';
@@ -8,12 +9,36 @@ import {Workspace} from './editor.js';
 import {FileArgs} from '../path.ux/scripts/simple/file.js';
 import {PropertiesBag} from './property_templ.js';
 import {Context} from './context.js';
+import config from '../config/config.js';
+import {ImageWrangler} from './image_wrangler.js';
+
+nstructjs.setWarningMode(0);
 
 export const STARTUP_FILE_KEY = "_startup_file_1";
 
 export const Properties = {
   steps  : {type: "int", value: 1, min: 0, max: 10, slideSpeed: 5},
   boolVal: {type: "bool", value: true},
+  panel  : {
+    type  : "panel",
+    float : {type: "float", value: 0, min: 0, max: 10, step: 0.05, decimalPlaces: 3},
+    slider: {type: "float", slider: true, value: 0, min: 0, max: 10, step: 0.05, decimalPlaces: 3},
+  }
+};
+
+/* See config.DRAW_TEST_IMAGES */
+export const TestImages = {
+  imageColumns : 2,
+  singletonMode: false,
+  test1        : {
+    size: [128, 256],
+  },
+  test2        : {
+    dimen: 256
+  },
+  test3        : {
+    dimen: 128
+  },
 };
 
 window.addEventListener("contextmenu", (e) => {
@@ -40,6 +65,9 @@ export class App extends simple.AppState {
     this.createNewFile(true);
 
     this.saveFilesInJSON = true;
+    let dimen = 128;
+
+    this.testImages = new ImageWrangler(TestImages);
   }
 
   createNewFile(noReset = false) {
@@ -85,19 +113,21 @@ export class App extends simple.AppState {
     }
   }
 
+  getFileObjects() {
+    return [this.mesh, this.properties, this.testImages];
+  }
+
   saveFileSync(objects, args = {}) {
     if (args.useJSON === undefined) {
       args.useJSON = true;
     }
 
-    return super.saveFileSync([
-      this.mesh, this.properties
-    ], args);
+    return super.saveFileSync(this.getFileObjects(), args);
   }
 
   saveFile(args = {}) {
     return new Promise((accept, reject) => {
-      accept(this.saveFileSync([this.mesh, this.properties], args));
+      accept(this.saveFileSync(this.getFileObjects(), args));
     });
   }
 
@@ -113,6 +143,13 @@ export class App extends simple.AppState {
     this.properties = file.objects[1] ?? this.properties;
 
     this.properties.patchTemplate(Properties);
+
+    for (let obj of file.objects) {
+      if (obj instanceof ImageWrangler) {
+        this.testImages = obj;
+        this.testImages.loadFromTemplate(TestImages);
+      }
+    }
 
     window.redraw_all();
 
@@ -174,6 +211,12 @@ export function start() {
 
   window._appstate = new App();
   _appstate.start();
+
+  if (config.AUTOSAVE) {
+    window.setInterval(() => {
+      _appstate.saveStartupFile();
+    }, config.AUTOSAVE_INTERVAL_MS);
+  }
 
   window.redraw_all();
 }

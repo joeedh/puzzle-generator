@@ -215,6 +215,7 @@ export class MakeFaceOp extends MeshOp {
     vs = vs.sort((a, b) => a.edges.length - b.edges.length);
     vs = new Set(vs);
 
+    debugger;
     let segs = [];
     let visit = new WeakSet();
 
