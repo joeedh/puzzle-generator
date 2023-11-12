@@ -1,0 +1,10 @@
+{
+  "trailingComma": "es5",
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": false,
+  "quoteProps": "preserve",
+  "endOfLine": "crlf",
+  "parser": "babel",
+  "__disabled_plugins": ["./prettier-format-extra.mjs"]
+}
