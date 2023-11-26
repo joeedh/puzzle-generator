@@ -8,6 +8,7 @@ import config from '../config/config.js';
 
 export * from './mesh_base.js';
 import {MeshFlags, MeshFeatures, MeshTypes} from './mesh_base.js';
+import {cubic, cubicOffsetDv, d2cubic, dcubic} from './bezier.js';
 
 const sel = [1, 0.8, 0, 1];
 const high = [1, 0.8, 0.7, 1]
@@ -234,7 +235,12 @@ Handle.STRUCT = nstructjs.inherit(Handle, Element, "mesh.Handle") + `
 `;
 nstructjs.register(Handle);
 
-let _evaluate_vs = util.cachering.fromConstructor(Vector3, 64);
+const Vector = (new Vertex()).length === 3 ? Vector3 : Vector2;
+const _evaluate_vs = util.cachering.fromConstructor(Vector, 64);
+const _offset_dvs = util.cachering.fromConstructor(Vector, 64);
+const _derivative_vs = util.cachering.fromConstructor(Vector, 64);
+const _derivative2_vs = util.cachering.fromConstructor(Vector, 64);
+const _normal_vs = util.cachering.fromConstructor(Vector, 64);
 
 export class Edge extends Element {
   constructor() {
@@ -270,23 +276,50 @@ export class Edge extends Element {
   }
 
   evaluate(t) {
-    return _evaluate_vs.next().load(this.v1).interp(this.v2, t);
+    const p = _evaluate_vs.next();
+    const {v1, h1, h2, v2} = this
+
+    for (let i = 0; i < p.length; i++) {
+      p[i] = cubic(v1[i], h1[i], h2[i], v2[i], t);
+    }
+
+    return p;
   }
 
   derivative(t) {
-    let df = 0.0001;
-    let a = this.evaluate(t - df);
-    let b = this.evaluate(t + df);
+    const p = _derivative_vs.next();
+    const {v1, h1, h2, v2} = this
 
-    return b.sub(a).mulScalar(0.5/df);
+    for (let i = 0; i < p.length; i++) {
+      p[i] = dcubic(v1[i], h1[i], h2[i], v2[i], t);
+    }
+
+    return p;
   }
 
   derivative2(t) {
-    let df = 0.0001;
-    let a = this.derivative(t - df);
-    let b = this.derivative(t + df);
+    const p = _derivative2_vs.next();
+    const {v1, h1, h2, v2} = this
 
-    return b.sub(a).mulScalar(0.5/df);
+    for (let i = 0; i < p.length; i++) {
+      p[i] = d2cubic(v1[i], h1[i], h2[i], v2[i], t);
+    }
+
+    return p;
+  }
+
+  normal(t) {
+    let p = _normal_vs.next().load(this.derivative(t));
+
+    p.normalize().swapAxes(0, 1);
+    p[1] = -p[1];
+
+    return p
+  }
+
+  offsetDv(t, radius) {
+    let dv = cubicOffsetDv(this.v1, this.h1, this.h2, this.v2, t, radius);
+    return _offset_dvs.next().zero().loadXYZ(dv[0], dv[1], 0.0);
   }
 
   curvature(t) {
@@ -377,6 +410,62 @@ export class Loop extends Element {
       prev       : this.prev.eid,
       list       : this.list.eid
     }, super.toJSON());
+  }
+
+  evaluate(t) {
+    if (this.v === this.e.v2) {
+      t = 1.0 - t;
+    }
+
+    return this.e.evaluate(t);
+  }
+
+  normal(t) {
+    let sign = 1;
+    if (this.v === this.e.v2) {
+      t = 1.0 - t;
+      sign = -1.0;
+    }
+
+    return this.e.normal(t).mulScalar(sign);
+  }
+
+  derivative(t) {
+    let sign = 1;
+    if (this.v === this.e.v2) {
+      t = 1.0 - t;
+      sign = -1;
+    }
+
+    return this.e.derivative(t).mulScalar(sign)
+  }
+
+  derivative2(t) {
+    let sign = 1;
+    if (this.v === this.e.v2) {
+      t = 1.0 - t;
+      sign = -1;
+    }
+
+    return this.e.derivative2(t).mulScalar(sign)
+  }
+
+  offsetDv(t, radius) {
+    let sign = 1;
+    if (this.v === this.e.v2) {
+      t = 1.0 - t;
+      sign = -1;
+    }
+
+    return this.e.offsetDv(t, radius).mulScalar(sign)
+  }
+
+  get h1() {
+    return this.v === this.e.v1 ? this.e.h1 : this.e.h2;
+  }
+
+  get h2() {
+    return this.v === this.e.v1 ? this.e.h2 : this.e.h1;
   }
 
   loadJSON(obj) {
@@ -657,21 +746,46 @@ Face.STRUCT = nstructjs.inherit(Face, Element, "mesh.Face") + `
 `;
 nstructjs.register(Face);
 
+
+export class ElementSetVisibleIter {
+  iter = undefined;
+  set = undefined;
+
+  constructor(set) {
+    this.set = set;
+    this.iter = set[Symbol.iterator]();
+  }
+
+  copy() {
+    return new ElementSetVisibleIter(this.set);
+  }
+
+  [Symbol.iterator]() {
+    return this.copy();
+  }
+
+  next() {
+    let ret = this.iter.next();
+    while (!ret.done && (ret.value.flag & MeshFlags.HIDE)) {
+      ret = this.iter.next();
+    }
+
+    return ret;
+  }
+}
+
 export class ElementSet extends Set {
   constructor(type) {
     super();
     this.type = type;
   }
 
+  get visible() {
+    return new ElementSetVisibleIter(this);
+  }
+
   get editable() {
-    let this2 = this;
-    return (function* () {
-      for (let item of this2) {
-        if (!(item.flag & MeshFlags.HIDE)) {
-          yield item;
-        }
-      }
-    })();
+    return this.visible;
   }
 
   get length() {
@@ -680,6 +794,72 @@ export class ElementSet extends Set {
 
   remove(item) {
     this.delete(item);
+  }
+}
+
+export class ElementListIter {
+  i = 0;
+  list = null;
+  ret = {done: true, value: undefined};
+
+  constructor(list) {
+    this.reset(list);
+  }
+
+  [Symbol.iterator]() {
+    return this.copy().reset(this.list);
+  }
+
+  copy() {
+    return new VisibleIter(this.list);
+  }
+
+  reset(list) {
+    this.list = list;
+    this.i = 0;
+
+    this.skipInvalid();
+
+    return this;
+  }
+
+  invalidElem(e) {
+    return false;
+  }
+
+  skipInvalid() {
+    let list = this.list;
+
+    while (this.i < list.length) {
+      if (list[this.i] !== undefined && !this.invalidElem(list[this.i])) {
+        break;
+      }
+
+      this.i++;
+    }
+  }
+
+  next() {
+    if (this.i >= this.list.length) {
+      this.ret.value = undefined;
+      this.ret.done = true;
+
+      return this.ret;
+    }
+
+    this.ret.value = this.list[this.i];
+    this.ret.done = false;
+
+    this.i++;
+    this.skipInvalid();
+
+    return this.ret;
+  }
+}
+
+class VisibleIter extends ElementListIter {
+  invalidElem(e) {
+    return e.flag & MeshFlags.HIDE;
   }
 }
 
@@ -695,15 +875,7 @@ export class ElementArray {
   }
 
   get visible() {
-    let this2 = this;
-
-    return (function* () {
-      for (let item of this2) {
-        if (!(item.flag & MeshFlags.HIDE)) {
-          yield item;
-        }
-      }
-    })();
+    return new VisibleIter(this.list);
   }
 
   get editable() {
@@ -711,17 +883,7 @@ export class ElementArray {
   }
 
   [Symbol.iterator]() {
-    let this2 = this;
-
-    return (function* () {
-      let list = this2.list;
-
-      for (let i = 0; i < list.length; i++) {
-        if (list[i] !== undefined) {
-          yield list[i];
-        }
-      }
-    })();
+    return new ElementListIter(this.list);
   }
 
   concat(b) {
@@ -916,6 +1078,14 @@ export class Mesh {
     if (config.MESH_HANDLES) {
       this.features |= MeshFeatures.HANDLES;
     }
+  }
+
+  clear() {
+    this.elists = {};
+    this.eidMap = new Map();
+    this.makeElists();
+
+    return this;
   }
 
   get haveHandles() {
@@ -1317,26 +1487,49 @@ export class Mesh {
     }
   }
 
+  reverseEdge(e) {
+    let tmp = e.v1;
+    e.v1 = e.v2;
+    e.v2 = tmp;
+
+    if (e.h1) {
+      let tmp2 = e.h1;
+      e.h1 = e.h2;
+      e.h2 = tmp2;
+    }
+  }
+
+  splitEdgeMulti(e, steps) {
+    let n = steps + 1;
+
+    for (let i = 0; i < steps; i++) {
+      let t = 1.0/n;
+      n--;
+
+      e = this.splitEdge(e, t)[0];
+    }
+  }
+
   splitEdge(e, t = 0.5) {
-    let nv = this.makeVertex(e.v1).interp(e.v2, t);
+    let nv = this.makeVertex();
+    nv.load(e.v1).interp(e.v2, t);
+
     let ne = this.makeEdge(nv, e.v2);
+
+    if (this.features & MeshFeatures.HANDLES) {
+      let dv1 = e.derivative(0.0).mulScalar(1.0/3.0);
+      let dv2 = e.derivative(t).mulScalar(1.0/3.0);
+      let dv3 = e.derivative(1.0).mulScalar(1.0/3.0);
+
+      e.h1.load(dv1).mulScalar(t).add(e.v1);
+      e.h2.load(dv2).mulScalar(-t).add(nv);
+      ne.h1.load(dv2).mulScalar(1.0 - t).add(ne.v1);
+      ne.h2.load(dv3).mulScalar(t - 1.0).add(ne.v2);
+    }
 
     e.v2.edges.remove(e);
     e.v2 = nv;
     nv.edges.push(e);
-
-    let vector = e.v1.length === 2 ? Vector2 : Vector3;
-
-    //e.h.interp(e.v1, 1.0/3.0);
-    //ne.h.load(h).interp(ne.v2, 0.5);
-    //nv.interp(h, 0.5);
-
-    if (this.features & MeshFeatures.HANDLES) {
-      ne.h1.load(nv).interp(ne.v2, 1.0/3.0);
-      ne.h2.load(nv).interp(ne.v2, 2.0/3.0);
-
-      e.h2.load(e.v1).interp(nv, 2.0/3.0);
-    }
 
     if (e.flag & MeshFlags.SELECT) {
       this.edges.setSelect(ne, true);
@@ -1365,7 +1558,7 @@ export class Mesh {
         l2.f = l.f;
         l2.list = l.list;
 
-        if (l.e === e) {
+        if (l.v === e.v1) {
           l2.v = nv;
           l2.e = ne;
           l2.prev = l;
@@ -1401,6 +1594,7 @@ export class Mesh {
 
     return [ne, nv];
   }
+
 
   copyElemData(dst, src) {
     this.setSelect(dst, src.flag & MeshFlags.SELECT);

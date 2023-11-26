@@ -7,6 +7,7 @@ import {
   EnumProperty, FlagProperty, Vec3Property
 } from '../path.ux/pathux.js';
 import {Mesh, MeshFlags, MeshTypes} from './mesh.js';
+import {vertexSmooth} from './mesh_utils.js';
 
 export let SelToolModes = {
   ADD : 0,
@@ -333,3 +334,49 @@ export class FixMeshOp extends MeshOp {
   }
 }
 ToolOp.register(FixMeshOp);
+
+
+export class GenerateOp extends MeshOp {
+  static tooldef() {
+    return {
+      uiname : "Generate",
+      toolpath : "app.generate_puzzle",
+      inputs : ToolOp.inherit({})
+    }
+  }
+
+  exec(ctx) {
+    ctx.puzzlegen.reset(ctx.properties, ctx.mesh);
+    ctx.puzzlegen.gen()
+  }
+}
+ToolOp.register(GenerateOp);
+
+export class VertexSmoothOp extends MeshOp {
+  static tooldef() {
+    return {
+      uiname  : "Vertex Smooth",
+      toolpath: "mesh.vertex_smooth",
+      inputs  : ToolOp.inherit({
+        repeat: new IntProperty(1)
+          .setRange(1, 100)
+          .noUnits()
+          .saveLastValue(),
+        factor: new FloatProperty(0.5)
+          .setRange(0.0, 1.0)
+          .noUnits()
+          .saveLastValue(),
+      })
+    }
+  }
+
+  exec(ctx) {
+    let mesh = ctx.mesh;
+    const {repeat, factor} = this.getInputs();
+
+    for (let i = 0; i < repeat; i++) {
+      vertexSmooth(mesh, mesh.verts.selected.editable, factor);
+    }
+  }
+}
+ToolOp.register(VertexSmoothOp);

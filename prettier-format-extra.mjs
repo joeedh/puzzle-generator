@@ -1,4 +1,5 @@
 console.log("Plugin imported!");
+
 import {doc} from "prettier";
 import * as acorn from 'acorn';
 import * as acorn_walk from 'acorn-walk';
@@ -122,6 +123,8 @@ function formatObjLit(code, tab_level=2) {
 
   let source = new SourceFile("a = " + code);
   acornOptions.onComment = source.comments;
+
+  console.log("yay");
   let ast = acorn.parse(source.lexdata, acornOptions);
 
   ast = ast.body[0].expression.right;
@@ -384,6 +387,7 @@ let parsers = {
       source = new SourceFile(text);
 
       acornOptions.onComment = source.comments;
+      console.log("yay");
       let ret = acorn.parse(text, acornOptions);
 
       let commentmap = new Array(source.lexdata.length);

@@ -11,19 +11,24 @@ import {PropertiesBag} from './property_templ.js';
 import {Context} from './context.js';
 import config from '../config/config.js';
 import {ImageWrangler} from './image_wrangler.js';
+import {PuzzleGenerator} from './puzzle.js';
 
 nstructjs.setWarningMode(0);
 
-export const STARTUP_FILE_KEY = "_startup_file_1";
+export const STARTUP_FILE_KEY = "_startup_file_pzg";
 
 export const Properties = {
-  steps  : {type: "int", value: 1, min: 0, max: 10, slideSpeed: 5},
-  boolVal: {type: "bool", value: true},
-  panel  : {
-    type  : "panel",
-    float : {type: "float", value: 0, min: 0, max: 10, step: 0.05, decimalPlaces: 3},
-    slider: {type: "float", slider: true, value: 0, min: 0, max: 10, step: 0.05, decimalPlaces: 3},
-  }
+  autoGenerate: {type: "bool", value: true},
+  rows        : {type: "int", value: 10, min: 2, max: 200, slideSpeed: 5},
+  columns     : {type: "int", value: 10, min: 2, max: 200, slideSpeed: 5},
+  jitter      : {type: "float", value: 0.5, min: 0, max: 2, step: 0.1},
+  scale       : {type: "float", value: 35.0, min: 0.01, max: 1000.0, step: 1.0},
+  tabSize     : {type: "float", value: 1.0, min: 0.2, max: 10.0, step: 0.25},
+  tabOff      : {type: "float", value: 1.0, min: 0.2, max: 10.0, step: 0.25},
+  tabNeck     : {type: "float", value: 1.0, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
+  tabInward   : {type: "float", value: 0.5, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
+  inset       : {type: "float", value: 0.1, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
+  drawHandles : {type: "bool", value: true},
 };
 
 /* See config.DRAW_TEST_IMAGES */
@@ -63,6 +68,7 @@ export class App extends simple.AppState {
     this.properties = undefined;
 
     this.createNewFile(true);
+    this.puzzlegen = new PuzzleGenerator(this.properties, this.mesh);
 
     this.saveFilesInJSON = true;
     let dimen = 128;

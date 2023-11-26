@@ -6,5 +6,5 @@
   "quoteProps": "preserve",
   "endOfLine": "crlf",
   "parser": "babel",
-  "__disabled_plugins": ["./prettier-format-extra.mjs"]
+  "XXXplugins": ["./prettier-format-extra.mjs"]
 }

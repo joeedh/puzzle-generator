@@ -95,17 +95,28 @@ export class MeshEditor extends ToolModeBase {
 
     let mesh = this.ctx.mesh;
 
-    let w = 8;
+    let w = 3;
+    const haveHandles = mesh.haveHandles;
 
-    for (let e of mesh.edges.visible) {
-      g.strokeStyle = color2css(getElemColor(mesh.edges, e));
-      g.beginPath();
-      g.moveTo(e.v1[0], e.v1[1]);
-      g.lineTo(e.v2[0], e.v2[1]);
-      g.stroke();
+    if (!haveHandles) {
+      for (let e of mesh.edges.visible) {
+        g.strokeStyle = color2css(getElemColor(mesh.edges, e));
+        g.beginPath();
+        g.moveTo(e.v1[0], e.v1[1]);
+        g.lineTo(e.v2[0], e.v2[1]);
+        g.stroke();
+      }
+    } else {
+      for (let e of mesh.edges.visible) {
+        g.strokeStyle = color2css(getElemColor(mesh.edges, e));
+        g.beginPath();
+        g.moveTo(e.v1[0], e.v1[1]);
+        g.bezierCurveTo(e.h1[0], e.h1[1], e.h2[0], e.h2[1], e.v2[0], e.v2[1]);
+        g.stroke();
+      }
     }
 
-    if (mesh.haveHandles) {
+    if (haveHandles && ctx.properties.drawHandles) {
       for (let h of mesh.handles.visible) {
         g.strokeStyle = color2css(getElemColor(mesh.handles, h));
         let v = h.owner.vertex(h);
@@ -118,16 +129,18 @@ export class MeshEditor extends ToolModeBase {
     }
 
     let vlists = [mesh.verts]
-    if (mesh.haveHandles) {
+    if (ctx.properties.drawHandles && haveHandles) {
       vlists.push(mesh.handles);
     }
 
-    for (let list of vlists) {
-      for (let v of list.visible) {
-        g.fillStyle = color2css(getElemColor(list, v));
-        g.beginPath();
-        g.rect(v[0] - w*0.5, v[1] - w*0.5, w, w);
-        g.fill();
+    if (ctx.properties.drawHandles) {
+      for (let list of vlists) {
+        for (let v of list.visible) {
+          g.fillStyle = color2css(getElemColor(list, v));
+          g.beginPath();
+          g.rect(v[0] - w*0.5, v[1] - w*0.5, w, w);
+          g.fill();
+        }
       }
     }
 
@@ -138,11 +151,13 @@ export class MeshEditor extends ToolModeBase {
 
       g.fillStyle = color2css(color);
       for (let list of f.lists) {
-        let first = true;
+        let l = list.l.prev;
+        g.moveTo(l.v[0], l.v[1]);
+
         for (let l of list) {
-          if (first) {
-            first = false;
-            g.moveTo(l.v[0], l.v[1]);
+          if (haveHandles) {
+            let {h1, h2} = l.prev;
+            g.bezierCurveTo(h1[0], h1[1], h2[0], h2[1], l.v[0], l.v[1]);
           } else {
             g.lineTo(l.v[0], l.v[1]);
           }

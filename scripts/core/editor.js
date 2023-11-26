@@ -38,6 +38,9 @@ export class Workspace extends simple.Editor {
 
     this.keymap = new KeyMap();
 
+
+    this.keymap.add(new HotKey("D", [], "app.generate_puzzle"));
+    this.keymap.add(new HotKey("W", [], "mesh.vertex_smooth"));
     this.keymap.add(new HotKey("Space", [], () => {
       let menu = [];
 
@@ -170,6 +173,7 @@ export class Workspace extends simple.Editor {
     })
 
     row.tool("app.load_defaults()");
+    row.tool("app.generate_puzzle");
 
     let tab;
     tab = sidebar.tab("Options");
@@ -206,6 +210,12 @@ export class Workspace extends simple.Editor {
       this.ctx.state.testImages.draw(canvas, this.g);
     }
 
+    if (this.ctx.properties.autoGenerate) {
+      this.ctx.puzzlegen.reset(this.ctx.properties, this.ctx.mesh);
+      this.ctx.puzzlegen.gen()
+    }
+
+    this.ctx.puzzlegen.draw(this.canvas, this.g);
     this.toolmode.draw(this.ctx, this.canvas, this.g);
   }
 

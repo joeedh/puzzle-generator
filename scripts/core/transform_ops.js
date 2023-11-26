@@ -102,13 +102,10 @@ export class TransformVert extends TransformElem {
 
     for (let td of list) {
       let vlen = td.v.length;
+      ret.push(td.v.eid);
 
-      for (let td of list) {
-        ret.push(td.v.eid);
-
-        for (let i = 0; i < vlen; i++) {
-          ret.push(td.v[i]);
-        }
+      for (let i = 0; i < vlen; i++) {
+        ret.push(td.v[i]);
       }
     }
 
@@ -394,7 +391,7 @@ export class ScaleOp extends TransformOp {
     let scenter = workspace.getGlobalMouse(center[0], center[1]);
 
     this.makeTempLine([e.x, e.y], scenter);
-    
+
     let ratio = l2/l1;
     let scale = new Vector().addScalar(1.0);
 

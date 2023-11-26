@@ -48,6 +48,10 @@ export class Context {
     return this.state.testImages;
   }
 
+  get puzzlegen() {
+    return this.state.puzzlegen;
+  }
+
   static defineAPI(api, st) {
     st.struct("testImages", "testImages", "Test Images", api.mapStruct(ImageWrangler));
     st.dynamicStruct("properties", "properties", "Properties");

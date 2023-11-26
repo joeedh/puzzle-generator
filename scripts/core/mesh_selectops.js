@@ -27,11 +27,21 @@ export class SelectOpBase extends ToolOp {
     return tool;
   }
 
+  getSelMask(ctx) {
+    let mask = this.inputs.selMask.getValue();
+
+    if (ctx.mesh.haveHandles) {
+      mask |= MeshTypes.HANDLE;
+    }
+
+    return mask;
+  }
+
   undoPre(ctx) {
     this._undo = [];
 
     let mesh = ctx.mesh;
-    let mask = this.inputs.selMask.getValue();
+    let mask = this.getSelMask(ctx);
 
     for (let list of mesh.getElists()) {
       let data = {
@@ -117,9 +127,11 @@ export class SelectOneOp extends SelectOpBase {
 
   exec(ctx) {
     let mesh = ctx.mesh;
-    let {mode, elemEid, flush, setActive, unique, selMask} = this.getInputs();
+    let {mode, elemEid, flush, setActive, unique} = this.getInputs();
+    let selMask = this.getSelMask(ctx);
 
     let elem = mesh.eidMap.get(elemEid);
+    const haveHandles = mesh.haveHandles;
 
     console.log("unique", unique, flush, setActive, elemEid, mode, elem);
 
@@ -128,7 +140,15 @@ export class SelectOneOp extends SelectOpBase {
     }
 
     if (mode === SelToolModes.ADD || mode === SelToolModes.AUTO) {
-      mesh.setSelect(elem, mode !== SelToolModes.SUB);
+      const select = mode !== SelToolModes.SUB;
+
+      mesh.setSelect(elem, select);
+
+      if (select && haveHandles && elem.type === MeshTypes.VERTEX) {
+        for (let e of elem.edges) {
+          mesh.setSelect(e.handle(elem), true);
+        }
+      }
     }
 
     if (setActive) {
