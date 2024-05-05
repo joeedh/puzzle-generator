@@ -457,7 +457,7 @@ export class Loop extends Element {
       sign = -1;
     }
 
-    return this.e.offsetDv(t, radius).mulScalar(sign)
+    return this.e.offsetDv(t, radius*sign).mulScalar(sign)
   }
 
   get h1() {
@@ -1510,9 +1510,13 @@ export class Mesh {
     }
   }
 
-  splitEdge(e, t = 0.5) {
+  splitEdge(e, t = 0.5, simpleInterp = true) {
     let nv = this.makeVertex();
-    nv.load(e.v1).interp(e.v2, t);
+    if (simpleInterp) {
+      nv.load(e.v1).interp(e.v2, t);
+    } else {
+      nv.load(e.evaluate(t));
+    }
 
     let ne = this.makeEdge(nv, e.v2);
 

@@ -12,6 +12,7 @@ export class PuzzleGenerator {
   tabNeck = 1.0;
   tabInward = 0.5;
   inset = 0.1;
+  seed = 0;
 
   constructor(props, mesh) {
     this.props = props;
@@ -30,6 +31,7 @@ export class PuzzleGenerator {
     this.tabNeck = props.tabNeck;
     this.tabInward = props.tabInward;
     this.inset = props.inset;
+    this.seed = props.seed;
 
     return this;
   }
@@ -90,7 +92,7 @@ export class PuzzleGenerator {
     ]
     offs = offs.map(f => new Vector3(f));
 
-    const rand = new util.MersenneRandom(0);
+    const rand = new util.MersenneRandom(this.seed);
 
     const doneset = new WeakSet();
 
@@ -151,17 +153,25 @@ export class PuzzleGenerator {
       mesh.setSelect(v, true);
     }
 
-    this.insetMesh(mesh);
+    if (this.inset > 0.0) {
+      this.insetMesh(mesh);
+    }
   }
 
   insetMesh(mesh) {
+    let verts = new Set(mesh.verts);
+    let faces = new Set(mesh.faces);
+
     let {inset, scale} = this;
     inset *= scale;
 
     let t1 = new Vector3(), t2 = new Vector3();
     let t3 = new Vector3(), t4 = new Vector3();
 
-    let faces = new Set(mesh.faces);
+    for (let e of Array.from(mesh.edges)) {
+      mesh.splitEdge(e, 0.5, false);
+    }
+
     for (let f of faces) {
       let vs = Array.from(f.lists[0])
         .map(l => mesh.makeVertex(l.v))
@@ -180,21 +190,23 @@ export class PuzzleGenerator {
         let n1 = l1.prev.normal(1.0);
         let n2 = l1.normal(0.0);
 
+        let th = Math.acos(n1.dot(n2));
+
+        let inset2 = inset/Math.cos(th/2);
+
         let n = n1.copy().interp(n2, 0.5).normalize()
 
-        l2.v.addFac(n1, inset/2);
-        l2.v.addFac(n2, inset/2);
+        l2.v.addFac(n, inset2);
 
-
-        l2.h1.load(l1.offsetDv(0.0, inset)).mulScalar(1.0/3.0).add(l2.v);
-        l2.prev.h2.load(l1.prev.offsetDv(1.0, inset)).mulScalar(-1.0/3.0).add(l2.v);
+        l2.h1.load(l1.offsetDv(0.0, inset2)).mulScalar(1.0/3.0).add(l2.v);
+        l2.prev.h2.load(l1.prev.offsetDv(1.0, inset2)).mulScalar(-1.0/3.0).add(l2.v);
 
         l2 = l2.next;
       } while ((l1 = l1.next) !== f.lists[0].l);
     }
 
-    for (let f of faces) {
-      mesh.killFace(f);
+    for (let v of verts) {
+      mesh.killVertex(v);
     }
   }
 

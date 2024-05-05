@@ -16,19 +16,21 @@ import {PuzzleGenerator} from './puzzle.js';
 nstructjs.setWarningMode(0);
 
 export const STARTUP_FILE_KEY = "_startup_file_pzg";
+export const SETTINGS_VERSION = 0;
 
 export const Properties = {
   autoGenerate: {type: "bool", value: true},
   rows        : {type: "int", value: 10, min: 2, max: 200, slideSpeed: 5},
   columns     : {type: "int", value: 10, min: 2, max: 200, slideSpeed: 5},
-  jitter      : {type: "float", value: 0.5, min: 0, max: 2, step: 0.1},
+  jitter      : {type: "float", value: 0.25, min: 0, max: 2, step: 0.1},
   scale       : {type: "float", value: 35.0, min: 0.01, max: 1000.0, step: 1.0},
   tabSize     : {type: "float", value: 1.0, min: 0.2, max: 10.0, step: 0.25},
-  tabOff      : {type: "float", value: 1.0, min: 0.2, max: 10.0, step: 0.25},
-  tabNeck     : {type: "float", value: 1.0, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
-  tabInward   : {type: "float", value: 0.5, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
-  inset       : {type: "float", value: 0.1, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
+  tabOff      : {type: "float", value: 0.95, min: 0.2, max: 10.0, step: 0.25},
+  tabNeck     : {type: "float", value: 1.23, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
+  tabInward   : {type: "float", value: 0.43, min: 0.01, max: 2.0, step: 0.1, decimalPlaces: 2},
+  inset       : {type: "float", value: 0.02, min: 0.0, max: 2.0, step: 0.1, decimalPlaces: 2},
   drawHandles : {type: "bool", value: true},
+  seed        : {type: "int", value: 0},
 };
 
 /* See config.DRAW_TEST_IMAGES */
@@ -93,6 +95,33 @@ export class App extends simple.AppState {
     let v4 = this.mesh.makeVertex([s + d, s, 0]);
 
     this.mesh.makeFace([v1, v2, v3, v4]);
+  }
+
+  saveSettings() {
+    let keys = this.properties._props.map(p => p.apiname);
+    let json = {};
+
+    for (let key of keys) {
+      json[key] = this.properties[key];
+    }
+
+    json.settingsVersion = SETTINGS_VERSION;
+
+    return json;
+  }
+
+  loadSettings(json) {
+    if (typeof json === "string") {
+      json = JSON.parse(json);
+    }
+
+    for (let k in json) {
+      if (k !== "settingsVersion") {
+        this.properties[k] = json[k];
+      }
+    }
+
+    window.redraw_all();
   }
 
   saveStartupFile() {
